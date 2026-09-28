@@ -1,0 +1,10 @@
+CompileFlags:
+  Add:
+    - -Wno-unknown-attributes
+    - -Wno-unknown-warning-option
+    - -Wno-unused-command-line-argument
+Diagnostics:
+  Suppress:
+    - "-Wunknown-attributes"
+    - "unknown_attribute_ignored"
+    - "attribute_section_invalid_for_target"
