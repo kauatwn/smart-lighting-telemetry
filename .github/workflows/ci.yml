@@ -138,8 +138,8 @@ jobs:
         with:
           name: uno-r4-wifi-firmware
           path: |
-            smart-lighting-telemetry/.pio/build/uno_r4_wifi/firmware.bin
-            smart-lighting-telemetry/.pio/build/uno_r4_wifi/firmware.elf
-            smart-lighting-telemetry/.pio/build/uno_r4_wifi/SHA256SUMS
+            .pio/build/uno_r4_wifi/firmware.bin
+            .pio/build/uno_r4_wifi/firmware.elf
+            .pio/build/uno_r4_wifi/SHA256SUMS
           if-no-files-found: error
           retention-days: 7
