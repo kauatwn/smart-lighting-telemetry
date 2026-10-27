@@ -13,6 +13,16 @@
 
 namespace lighting {
 /**
+ * @brief Identificadores legíveis para cada canal de iluminação.
+ */
+enum class Channel : uint8_t {
+  COZINHA = 0,
+  SALA = 1,
+  BANHEIRO = 2,
+  VARANDA = 3,
+};
+
+/**
  * @brief Quantidade de pontos de iluminação representados por LEDs.
  */
 constexpr uint8_t CHANNEL_COUNT = 4;
@@ -27,17 +37,17 @@ void init();
 
 /**
  * @brief Atualiza o estado de um ponto de iluminação.
- * @param channel Índice do canal, de 0 a CHANNEL_COUNT - 1.
+ * @param channel Canal de iluminação (ex: lighting::COZINHA).
  * @param enabled true para ligar; false para desligar.
  */
-void set_channel(uint8_t channel, bool enabled);
+void set_channel(Channel channel, bool enabled);
 
 /**
  * @brief Consulta o estado lógico de um ponto de iluminação.
- * @param channel Índice do canal.
- * @return true se estiver ligado; false caso contrário.
+ * @param channel Canal de iluminação (ex: lighting::COZINHA).
+ * @return true se o ponto estiver ligado; false caso contrário.
  */
-bool get_channel(uint8_t channel);
+bool get_channel(Channel channel);
 
 /**
  * @brief Atualiza o estado do relé.
