@@ -1,9 +1,10 @@
-/*
- * Lighting Controller Module - Smart Lighting Telemetry
+/**
+ * @file lighting.h
+ * @brief Interface de controle das saídas de iluminação.
  *
- * Descrição:
- * Declaração das rotinas de controle procedural para 4 canais de iluminação LED,
- * suportando modulação PWM de brilho e modos de operação com animações não-bloqueantes.
+ * Centraliza o controle dos quatro LEDs, do relé e do botão
+ * físico. A integração com a Arduino IoT Cloud é realizada
+ * por outro módulo.
  */
 
 #pragma once
@@ -11,35 +12,48 @@
 #include <stdint.h>
 
 namespace lighting {
+/**
+ * @brief Quantidade de pontos de iluminação representados por LEDs.
+ */
+constexpr uint8_t CHANNEL_COUNT = 4;
 
-constexpr uint8_t channel_count = 4;
-
-enum class OperationMode : uint8_t {
-  MODE_MANUAL = 0,
-  MODE_ALL_ON = 1,
-  MODE_BREATHE = 2,
-  MODE_ALERT = 3,
-};
-
-// Inicializa os pinos de saída PWM e desliga os LEDs
+/**
+ * @brief Inicializa as saídas e o botão físico.
+ *
+ * As saídas começam desligadas. O relé utiliza lógica invertida:
+ * LOW aciona o relé e HIGH o mantém desligado.
+ */
 void init();
 
-// Define o estado lógico de um canal individual (índice 0 a 3)
-void set_channel(uint8_t channel_index, bool state);
+/**
+ * @brief Atualiza o estado de um ponto de iluminação.
+ * @param channel Índice do canal, de 0 a CHANNEL_COUNT - 1.
+ * @param enabled true para ligar; false para desligar.
+ */
+void set_channel(uint8_t channel, bool enabled);
 
-// Retorna o estado lógico atual de um canal individual
-bool get_channel(uint8_t channel_index);
+/**
+ * @brief Consulta o estado lógico de um ponto de iluminação.
+ * @param channel Índice do canal.
+ * @return true se estiver ligado; false caso contrário.
+ */
+bool get_channel(uint8_t channel);
 
-// Define o percentual de brilho geral (0 a 100%)
-void set_brightness(uint8_t brightness_pct);
+/**
+ * @brief Atualiza o estado do relé.
+ * @param enabled true para acionar; false para desligar.
+ */
+void set_relay(bool enabled);
 
-// Retorna o brilho configurado atualmente
-uint8_t get_brightness();
+/**
+ * @brief Consulta o estado lógico do relé.
+ */
+bool get_relay_state();
 
-// Define o modo de operação do sistema de iluminação
-void set_mode(OperationMode mode);
-
-// Atualiza o estado físico e executa animações temporizadas com millis()
-void update(unsigned long current_ms);
-
+/**
+ * @brief Processa o botão físico sem bloquear o loop principal.
+ * @param current_ms Valor atual de millis().
+ * @return true se o botão alternou o estado do relé; false caso contrário.
+ */
+bool process_physical_button(unsigned long current_ms);
 }  // namespace lighting
