@@ -1,93 +1,114 @@
-/*
- * Telemetry Implementation - Smart Lighting Telemetry
+/**
+ * @file telemetry.cpp
+ * @brief Implementação das métricas operacionais.
  *
- * Descrição:
- * Coleta procedural de telemetria de hardware através de amostragem por registradores
- * do sensor de silício do Renesas RA4M1, sinal Wi-Fi e tempo de atividade.
+ * Calcula o tempo ligado, conta os acionamentos e estima a energia
+ * consumida por cada ponto de iluminação. Também monitora o sinal
+ * Wi-Fi periodicamente.
+ *
+ * A energia é estimada a partir de uma potência nominal configurável;
+ * não representa uma medição elétrica real.
  */
 
 #include "telemetry.h"
 
+#include <Arduino.h>
 #include <WiFiS3.h>
-#include <bsp_api.h>
+
+#include "lighting.h"
+#include "thing_properties.h"
 
 namespace telemetry {
-
 namespace {
-constexpr float fallback_temperature_c = 28.0F;
+// Potência assumida para cada ponto de iluminação.
+constexpr float LIGHT_POWER_W = 9.0F;
 
-// Realiza a leitura física direta do registrador ADTSDR do Renesas RA4M1
-float read_raw_ra4m1_temperature() {
-  // Dispara a conversão A/D no canal do sensor interno de temperatura
-  R_ADC0->ADCSR_b.ADST = 1;
+// Intervalo entre consultas da intensidade do sinal Wi-Fi.
+constexpr unsigned long RSSI_UPDATE_INTERVAL_MS = 5000;
 
-  uint32_t timeout = 1000;
-  while (R_ADC0->ADCSR_b.ADST == 1 && --timeout > 0) {
-  }
+// Valor utilizado quando o dispositivo não está conectado.
+constexpr int WIFI_DISCONNECTED_RSSI_DBM = -127;
 
-  const uint16_t raw_counts = R_ADC0->ADTSDR;
-  if (raw_counts == 0 || raw_counts >= 16383) {
-    return fallback_temperature_c;
-  }
+constexpr uint8_t CHANNEL_COUNT = lighting::CHANNEL_COUNT;
 
-  // Conversão para milivolts considerando ADC de 14 bits (16384 passos) e VREF de 5V
-  const float sensor_mv = static_cast<float>(raw_counts) * 5000.0F / 16384.0F;
+struct ChannelMetrics {
+  float* on_time_s;
+  int* activations;
+  float* consumption_mwh;
+};
 
-  // Característica térmica do sensor TSN do RA4M1: ~1050 mV a 25 °C com inclinação de -3.65 mV/°C
-  const float calculated_temp = 25.0F + (1050.0F - sensor_mv) / 3.65F;
+// Apenas declaramos o array global sem inicializar com os ponteiros externos
+ChannelMetrics metrics[CHANNEL_COUNT];
 
-  // Filtro de plausibilidade para die temperature (-10 °C a 85 °C)
-  if (calculated_temp < -10.0F || calculated_temp > 85.0F) {
-    return fallback_temperature_c;
-  }
-
-  return calculated_temp;
-}
+bool previous_states[CHANNEL_COUNT] = {};
+unsigned long last_update_ms = 0;
+unsigned long last_rssi_update_ms = 0;
 }  // namespace
 
-void init() {
-  // Habilita o clock do sensor de temperatura no registrador de controle de módulos (MSTP)
-  R_MSTP->MSTPCRC &= ~(1UL << 14U);
+void init(const unsigned long start_ms) {
+  last_update_ms = start_ms;
+  last_rssi_update_ms = start_ms;
 
-  // Seleciona o sensor interno de temperatura para o conversor A/D (ADC140)
-  R_ADC0->ADEXICR_b.TSSA = 1;
-}
+  // Atribuição dos ponteiros em tempo de execução dentro do setup()
+  metrics[0] = {
+      .on_time_s = &cozinha_on_time_s,
+      .activations = &cozinha_activations,
+      .consumption_mwh = &cozinha_consumption_mwh,
+  };
+  metrics[1] = {
+      .on_time_s = &sala_on_time_s,
+      .activations = &sala_activations,
+      .consumption_mwh = &sala_consumption_mwh,
+  };
+  metrics[2] = {
+      .on_time_s = &banheiro_on_time_s,
+      .activations = &banheiro_activations,
+      .consumption_mwh = &banheiro_consumption_mwh,
+  };
+  metrics[3] = {
+      .on_time_s = &varanda_on_time_s,
+      .activations = &varanda_activations,
+      .consumption_mwh = &varanda_consumption_mwh,
+  };
 
-int read_wifi_rssi() {
-  const auto rssi = static_cast<int>(WiFi.RSSI());
-  if (rssi == 0 || rssi < -120 || rssi > 0) {
-    return -100;
-  }
-  return rssi;
-}
+  for (uint8_t channel = 0; channel < CHANNEL_COUNT; ++channel) {
+    previous_states[channel] = lighting::get_channel(channel);
 
-float read_temperature_c(const uint8_t active_led_count, const uint8_t brightness_pct) {
-  const float die_temp = read_raw_ra4m1_temperature();
-
-  // Incorpora o delta térmico causado pelo acionamento dos pinos de saída PWM
-  const float dissipation_factor = static_cast<float>(active_led_count) * static_cast<float>(brightness_pct) / 400.0F;
-  return die_temp + dissipation_factor * 1.5F;
-}
-
-int get_uptime_minutes(const unsigned long current_ms) {
-  constexpr unsigned long ms_per_minute = 60000;
-  return static_cast<int>(current_ms / ms_per_minute);
-}
-
-String get_status_message(const int rssi_dbm, const float temp_c, const bool is_alert_mode) {
-  if (is_alert_mode) {
-    return F("ALERTA ATIVO - Modo Estrobo");
-  }
-
-  if (rssi_dbm < -80) {
-    return F("Sinal Wi-Fi Fraco");
+    *metrics[channel].on_time_s = 0.0F;
+    *metrics[channel].activations = 0;
+    *metrics[channel].consumption_mwh = 0.0F;
   }
 
-  if (temp_c > 45.0F) {
-    return F("Atenção: Temperatura Elevada");
-  }
-
-  return F("Sistema Operacional - Normal");
+  wifi_rssi_dbm = WIFI_DISCONNECTED_RSSI_DBM;
 }
 
+void update(const unsigned long current_ms) {
+  const unsigned long delta_ms = current_ms - last_update_ms;
+  last_update_ms = current_ms;
+
+  for (uint8_t channel = 0; channel < CHANNEL_COUNT; ++channel) {
+    const bool is_on = lighting::get_channel(channel);
+
+    // Conta apenas transições de desligado para ligado.
+    if (is_on && !previous_states[channel]) {
+      ++(*metrics[channel].activations);
+    }
+
+    if (is_on) {
+      *metrics[channel].on_time_s += static_cast<float>(delta_ms) / 1000.0F;
+
+      // Converte potência × tempo para miliwatt-hora (mWh).
+      *metrics[channel].consumption_mwh += LIGHT_POWER_W * static_cast<float>(delta_ms) / 3600.0F;
+    }
+
+    previous_states[channel] = is_on;
+  }
+
+  // Consulta o sinal periodicamente sem bloquear o loop principal.
+  if (current_ms - last_rssi_update_ms >= RSSI_UPDATE_INTERVAL_MS) {
+    last_rssi_update_ms = current_ms;
+
+    wifi_rssi_dbm = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : WIFI_DISCONNECTED_RSSI_DBM;
+  }
+}
 }  // namespace telemetry

@@ -1,30 +1,29 @@
-/*
- * Telemetry Module - Smart Lighting Telemetry
+/**
+ * @file telemetry.h
+ * @brief Interface de coleta de métricas operacionais.
  *
- * Descrição:
- * Declaração das rotinas procedurais de coleta de métricas operacionais,
- * incluindo qualidade do sinal Wi-Fi (RSSI), temperatura do sistema e tempo de atividade.
+ * Registra o tempo ligado, a quantidade de acionamentos e a
+ * energia estimada de cada ponto de iluminação. Também monitora
+ * a intensidade do sinal Wi-Fi.
  */
 
 #pragma once
 
-#include <Arduino.h>
-
 namespace telemetry {
+/**
+ * @brief Inicializa o acompanhamento das métricas.
+ * @param start_ms Valor inicial de millis().
+ *
+ * Zera as métricas e registra os estados iniciais da iluminação.
+ */
+void init(unsigned long start_ms);
 
-// Inicializa o subsistema de telemetria
-void init();
-
-// Realiza a leitura da intensidade de sinal Wi-Fi em dBm
-int read_wifi_rssi();
-
-// Realiza a leitura/estimativa da temperatura operacional do MCU em °C
-float read_temperature_c(uint8_t active_led_count, uint8_t brightness_pct);
-
-// Retorna o tempo de operação contínua do dispositivo em minutos
-int get_uptime_minutes(unsigned long current_ms);
-
-// Gera uma mensagem descritiva de status do sistema para o painel em nuvem
-String get_status_message(int rssi_dbm, float temp_c, bool is_alert_mode);
-
+/**
+ * @brief Atualiza as métricas operacionais.
+ * @param current_ms Valor atual de millis().
+ *
+ * Acumula o tempo ligado e a energia estimada, identifica novos
+ * acionamentos e atualiza periodicamente o sinal Wi-Fi.
+ */
+void update(unsigned long current_ms);
 }  // namespace telemetry
