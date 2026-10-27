@@ -72,7 +72,8 @@ void init(const unsigned long start_ms) {
   };
 
   for (uint8_t channel = 0; channel < CHANNEL_COUNT; ++channel) {
-    previous_states[channel] = lighting::get_channel(channel);
+    const auto channel_enum = static_cast<lighting::Channel>(channel);
+    previous_states[channel] = lighting::get_channel(channel_enum);
 
     *metrics[channel].on_time_s = 0.0F;
     *metrics[channel].activations = 0;
@@ -87,7 +88,8 @@ void update(const unsigned long current_ms) {
   last_update_ms = current_ms;
 
   for (uint8_t channel = 0; channel < CHANNEL_COUNT; ++channel) {
-    const bool is_on = lighting::get_channel(channel);
+    const auto channel_enum = static_cast<lighting::Channel>(channel);
+    const bool is_on = lighting::get_channel(channel_enum);
 
     // Conta apenas transições de desligado para ligado.
     if (is_on && !previous_states[channel]) {

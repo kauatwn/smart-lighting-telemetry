@@ -66,7 +66,7 @@ void loop() {
 
     // Atualiza a nuvem/Alexa e o LED da cozinha com o novo estado do relé
     cozinha = estado_rele;
-    lighting::set_channel(0, estado_rele);
+    lighting::set_channel(lighting::Channel::COZINHA, estado_rele);
   }
 
   telemetry::update(millis());
@@ -76,27 +76,21 @@ void loop() {
  * @brief Aplica ao hardware uma alteração remota da cozinha (LED + Relé).
  */
 void on_cozinha_change() {
-  lighting::set_channel(0, cozinha);  // Canal 0 = LED da Cozinha (Pino 6)
-  lighting::set_relay(cozinha);       // Módulo Relé (Pino 9)
+  lighting::set_channel(lighting::Channel::COZINHA, cozinha);
+  lighting::set_relay(cozinha);
 }
 
 /**
  * @brief Aplica ao hardware uma alteração remota da sala.
  */
-void on_sala_change() {
-  lighting::set_channel(1, sala);  // Canal 1 = LED da Sala (Pino 3)
-}
+void on_sala_change() { lighting::set_channel(lighting::Channel::SALA, sala); }
 
 /**
  * @brief Aplica ao hardware uma alteração remota do banheiro.
  */
-void on_banheiro_change() {
-  lighting::set_channel(2, banheiro);  // Canal 2 = LED do Banheiro (Pino 4)
-}
+void on_banheiro_change() { lighting::set_channel(lighting::Channel::BANHEIRO, banheiro); }
 
 /**
  * @brief Aplica ao hardware uma alteração remota da varanda.
  */
-void on_varanda_change() {
-  lighting::set_channel(3, varanda);  // Canal 3 = LED da Varanda (Pino 5)
-}
+void on_varanda_change() { lighting::set_channel(lighting::Channel::VARANDA, varanda); }

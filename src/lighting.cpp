@@ -15,12 +15,18 @@
 
 namespace lighting {
 namespace {
-// Pinos dos LEDs, na mesma ordem dos índices dos canais.
+
+// Define os pinos de saída para cada canal de iluminação.
+constexpr uint8_t PIN_COZINHA = 6;
+constexpr uint8_t PIN_SALA = 3;
+constexpr uint8_t PIN_BANHEIRO = 4;
+constexpr uint8_t PIN_VARANDA = 5;
+
 constexpr uint8_t LED_PINS[CHANNEL_COUNT] = {
-    6,  // Cozinha
-    3,  // Sala
-    4,  // Banheiro
-    5,  // Varanda
+    PIN_COZINHA,
+    PIN_SALA,
+    PIN_BANHEIRO,
+    PIN_VARANDA,
 };
 
 constexpr uint8_t RELAY_PIN = 9;
@@ -62,26 +68,30 @@ void init() {
   last_debounce_ms = millis();
 }
 
-void set_channel(const uint8_t channel, const bool enabled) {
-  if (channel >= CHANNEL_COUNT) {
+void set_channel(const Channel channel, const bool enabled) {
+  const auto index = static_cast<uint8_t>(channel);
+
+  if (index >= CHANNEL_COUNT) {
     return;
   }
 
   // Evita escritas desnecessárias no hardware.
-  if (channel_states[channel] == enabled) {
+  if (channel_states[index] == enabled) {
     return;
   }
 
-  digitalWrite(LED_PINS[channel], enabled ? HIGH : LOW);
-  channel_states[channel] = enabled;
+  digitalWrite(LED_PINS[index], enabled ? HIGH : LOW);
+  channel_states[index] = enabled;
 }
 
-bool get_channel(const uint8_t channel) {
-  if (channel >= CHANNEL_COUNT) {
+bool get_channel(const Channel channel) {
+  const auto index = static_cast<uint8_t>(channel);
+
+  if (index >= CHANNEL_COUNT) {
     return false;
   }
 
-  return channel_states[channel];
+  return channel_states[index];
 }
 
 void set_relay(const bool enabled) {
