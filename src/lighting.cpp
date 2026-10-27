@@ -1,99 +1,124 @@
-/*
- * Lighting Controller Implementation - Smart Lighting Telemetry
+/**
+ * @file lighting.cpp
+ * @brief Implementação do controle de iluminação e do relé.
  *
- * Descrição:
- * Implementação procedural do acionamento físico dos LEDs com suporte a PWM,
- * controle individual de canais e efeitos de iluminação não-bloqueantes.
+ * Inicializa e controla os quatro LEDs, o relé e o botão físico.
+ * Mantém o estado lógico das saídas e detecta o acionamento do
+ * botão com debounce não bloqueante.
+ *
+ * Hardware: Arduino Uno R4 WiFi.
  */
 
 #include "lighting.h"
 
 #include <Arduino.h>
-#include <math.h>
-
-#include <algorithm>
 
 namespace lighting {
 namespace {
-constexpr uint8_t led_pins[channel_count] = {3, 5, 6, 9};
+// Pinos dos LEDs, na mesma ordem dos índices dos canais.
+constexpr uint8_t LED_PINS[CHANNEL_COUNT] = {
+    6,  // Cozinha
+    3,  // Sala
+    4,  // Banheiro
+    5,  // Varanda
+};
 
-bool channel_states[channel_count] = {false, false, false, false};
-uint8_t current_brightness = 100;
-auto current_mode = OperationMode::MODE_MANUAL;
+constexpr uint8_t RELAY_PIN = 9;
+constexpr uint8_t BUTTON_PIN = 12;
 
-void apply_pwm(const uint8_t pin, const uint8_t duty_cycle) { analogWrite(pin, duty_cycle); }
+// O módulo de relé é acionado em nível LOW.
+constexpr uint8_t RELAY_ON = LOW;
+constexpr uint8_t RELAY_OFF = HIGH;
 
-uint8_t pct_to_pwm(uint8_t pct) {
-  pct = std::min<uint8_t>(pct, 100);
-  return static_cast<uint8_t>(static_cast<uint16_t>(pct) * 255 / 100);
-}
+constexpr unsigned long DEBOUNCE_DELAY_MS = 50;
+
+bool channel_states[CHANNEL_COUNT] = {false, false, false, false};
+bool relay_state = false;
+
+// Estados utilizados para filtrar oscilações do botão.
+bool last_button_reading = HIGH != 0U;
+bool stable_button_state = HIGH != 0U;
+unsigned long last_debounce_ms = 0;
 }  // namespace
 
 void init() {
-  for (const uint8_t pin : led_pins) {
-    pinMode(pin, OUTPUT);
-    apply_pwm(pin, 0);
+  // Inicializa os LEDs desligados.
+  for (uint8_t channel = 0; channel < CHANNEL_COUNT; ++channel) {
+    pinMode(LED_PINS[channel], OUTPUT);
+    digitalWrite(LED_PINS[channel], LOW);
+    channel_states[channel] = false;
   }
+
+  // Define o estado inicial do relé como desligado.
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  relay_state = false;
+
+  // O botão conecta o pino ao GND quando pressionado.
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  last_button_reading = HIGH != 0U;
+  stable_button_state = HIGH != 0U;
+  last_debounce_ms = millis();
 }
 
-void set_channel(const uint8_t channel_index, const bool state) {
-  if (channel_index >= channel_count) {
+void set_channel(const uint8_t channel, const bool enabled) {
+  if (channel >= CHANNEL_COUNT) {
     return;
   }
-  channel_states[channel_index] = state;
+
+  // Evita escritas desnecessárias no hardware.
+  if (channel_states[channel] == enabled) {
+    return;
+  }
+
+  digitalWrite(LED_PINS[channel], enabled ? HIGH : LOW);
+  channel_states[channel] = enabled;
 }
 
-bool get_channel(const uint8_t channel_index) {
-  if (channel_index >= channel_count) {
+bool get_channel(const uint8_t channel) {
+  if (channel >= CHANNEL_COUNT) {
     return false;
   }
-  return channel_states[channel_index];
+
+  return channel_states[channel];
 }
 
-void set_brightness(const uint8_t brightness_pct) { current_brightness = brightness_pct > 100 ? 100 : brightness_pct; }
+void set_relay(const bool enabled) {
+  if (relay_state == enabled) {
+    return;
+  }
 
-uint8_t get_brightness() { return current_brightness; }
+  digitalWrite(RELAY_PIN, enabled ? RELAY_ON : RELAY_OFF);
+  relay_state = enabled;
+}
 
-void set_mode(const OperationMode mode) { current_mode = mode; }
+bool get_relay_state() { return relay_state; }
 
-void update(const unsigned long current_ms) {
-  const uint8_t base_pwm = pct_to_pwm(current_brightness);
+bool process_physical_button(const unsigned long current_ms) {
+  const bool reading = digitalRead(BUTTON_PIN) != 0U;
+  bool relay_toggled = false;
 
-  switch (current_mode) {
-    case OperationMode::MODE_MANUAL: {
-      for (uint8_t i = 0; i < channel_count; ++i) {
-        apply_pwm(led_pins[i], channel_states[i] ? base_pwm : 0);
+  // Reinicia a contagem sempre que a leitura elétrica mudar.
+  if (reading != last_button_reading) {
+    last_debounce_ms = current_ms;
+  }
+
+  // Aceita a leitura somente após permanecer estável.
+  if (current_ms - last_debounce_ms >= DEBOUNCE_DELAY_MS) {
+    if (reading != stable_button_state) {
+      stable_button_state = reading;
+
+      // INPUT_PULLUP: LOW indica que o botão foi pressionado.
+      if (static_cast<int>(stable_button_state) == LOW) {
+        set_relay(!relay_state);
+        relay_toggled = true;
       }
-      break;
-    }
-    case OperationMode::MODE_ALL_ON: {
-      for (const uint8_t pin : led_pins) {
-        apply_pwm(pin, base_pwm);
-      }
-      break;
-    }
-    case OperationMode::MODE_BREATHE: {
-      constexpr unsigned long period_ms = 3000;
-      const unsigned long cycle_pos = current_ms % period_ms;
-      const float angle = static_cast<float>(cycle_pos) / period_ms * 2.0F * static_cast<float>(M_PI);
-      const float normalized = (sinf(angle - static_cast<float>(M_PI) / 2.0F) + 1.0F) / 2.0F;
-      const auto breathe_pwm = static_cast<uint8_t>(normalized * static_cast<float>(base_pwm));
-
-      for (const uint8_t pin : led_pins) {
-        apply_pwm(pin, breathe_pwm);
-      }
-      break;
-    }
-    case OperationMode::MODE_ALERT: {
-      constexpr unsigned long strobe_interval_ms = 150;
-      const bool strobe_on = current_ms / strobe_interval_ms % 2 == 0;
-      const uint8_t alert_pwm = strobe_on ? 255 : 0;
-
-      for (const uint8_t pin : led_pins) {
-        apply_pwm(pin, alert_pwm);
-      }
-      break;
     }
   }
+
+  last_button_reading = reading;
+
+  return relay_toggled;
 }
 }  // namespace lighting
