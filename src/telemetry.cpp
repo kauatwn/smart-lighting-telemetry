@@ -108,7 +108,7 @@ void update(const unsigned long current_ms) {
   if (current_ms - last_rssi_update_ms >= RSSI_UPDATE_INTERVAL_MS) {
     last_rssi_update_ms = current_ms;
 
-    wifi_rssi_dbm = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : WIFI_DISCONNECTED_RSSI_DBM;
+    wifi_rssi_dbm = WiFi.status() == WL_CONNECTED ? static_cast<int>(WiFi.RSSI()) : WIFI_DISCONNECTED_RSSI_DBM;
   }
 }
 }  // namespace telemetry
