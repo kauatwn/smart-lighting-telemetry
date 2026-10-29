@@ -51,26 +51,28 @@ void process_hardware_inputs(const unsigned long current_ms) {
  * @param start_ms Tempo inicial obtido via millis().
  */
 void setup_telemetry(const unsigned long start_ms) {
-  constexpr telemetry::ChannelMetrics metrics[lighting::CHANNEL_COUNT] = {
+  constexpr std::array<telemetry::ChannelMetrics, lighting::CHANNEL_COUNT> metrics = {
       {
-          .on_time_s = &cozinha_on_time_s,
-          .consumption_mwh = &cozinha_consumption_mwh,
-          .activations = &cozinha_activations,
-      },
-      {
-          .on_time_s = &sala_on_time_s,
-          .consumption_mwh = &sala_consumption_mwh,
-          .activations = &sala_activations,
-      },
-      {
-          .on_time_s = &banheiro_on_time_s,
-          .consumption_mwh = &banheiro_consumption_mwh,
-          .activations = &banheiro_activations,
-      },
-      {
-          .on_time_s = &varanda_on_time_s,
-          .consumption_mwh = &varanda_consumption_mwh,
-          .activations = &varanda_activations,
+          {
+              .on_time_s = &cozinha_on_time_s,
+              .consumption_mwh = &cozinha_consumption_mwh,
+              .activations = &cozinha_activations,
+          },
+          {
+              .on_time_s = &sala_on_time_s,
+              .consumption_mwh = &sala_consumption_mwh,
+              .activations = &sala_activations,
+          },
+          {
+              .on_time_s = &banheiro_on_time_s,
+              .consumption_mwh = &banheiro_consumption_mwh,
+              .activations = &banheiro_activations,
+          },
+          {
+              .on_time_s = &varanda_on_time_s,
+              .consumption_mwh = &varanda_consumption_mwh,
+              .activations = &varanda_activations,
+          },
       },
   };
 

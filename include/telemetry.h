@@ -11,6 +11,10 @@
 
 #include <stdint.h>
 
+#include <array>
+
+#include "lighting.h"
+
 namespace telemetry {
 
 /**
@@ -24,10 +28,10 @@ struct ChannelMetrics {
 
 /**
  * @brief Inicializa a telemetria injetando as referências dos canais.
- * @param metrics Array com as estruturas de ponteiros para os 4 canais de iluminação.
+ * @param metrics Coleção contendo as estruturas de ponteiros para os canais de iluminação.
  * @param start_ms Valor inicial de tempo obtido via millis().
  */
-void init(const ChannelMetrics metrics[4], unsigned long start_ms);
+void init(const std::array<ChannelMetrics, lighting::CHANNEL_COUNT>& metrics, unsigned long start_ms);
 
 /**
  * @brief Recalcula as métricas de tempo, consumo e atuações dos canais.
