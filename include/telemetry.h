@@ -1,29 +1,43 @@
 /**
  * @file telemetry.h
- * @brief Interface de coleta de métricas operacionais.
+ * @brief Módulo de coleta e cálculo de métricas de telemetria energética.
  *
- * Registra o tempo ligado, a quantidade de acionamentos e a
- * energia estimada de cada ponto de iluminação. Também monitora
- * a intensidade do sinal Wi-Fi.
+ * Permite desacoplar as métricas de tempo de acionamento, quantidade de
+ * acionamentos e consumo acumulado (mWh) do provedor de nuvem através de
+ * injeção de ponteiros de variáveis.
  */
 
 #pragma once
 
+#include <stdint.h>
+
 namespace telemetry {
-/**
- * @brief Inicializa o acompanhamento das métricas.
- * @param start_ms Valor inicial de millis().
- *
- * Zera as métricas e registra os estados iniciais da iluminação.
- */
-void init(unsigned long start_ms);
 
 /**
- * @brief Atualiza as métricas operacionais.
- * @param current_ms Valor atual de millis().
- *
- * Acumula o tempo ligado e a energia estimada, identifica novos
- * acionamentos e atualiza periodicamente o sinal Wi-Fi.
+ * @brief Estrutura que agrupa os ponteiros para as variáveis de um canal.
+ */
+struct ChannelMetrics {
+  float* on_time_s;        // Ponteiro para o tempo aceso acumulado (em segundos).
+  float* consumption_mwh;  // Ponteiro para o consumo energético acumulado (em mWh).
+  int* activations;        // Ponteiro para o contador de acionamentos.
+};
+
+/**
+ * @brief Inicializa a telemetria injetando as referências dos canais.
+ * @param metrics Array com as estruturas de ponteiros para os 4 canais de iluminação.
+ * @param start_ms Valor inicial de tempo obtido via millis().
+ */
+void init(const ChannelMetrics metrics[4], unsigned long start_ms);
+
+/**
+ * @brief Recalcula as métricas de tempo, consumo e atuações dos canais.
+ * @param current_ms Tempo atual fornecido por millis().
  */
 void update(unsigned long current_ms);
+
+/**
+ * @brief Zera todas as métricas acumuladas nos ponteiros vinculados.
+ */
+void reset();
+
 }  // namespace telemetry
