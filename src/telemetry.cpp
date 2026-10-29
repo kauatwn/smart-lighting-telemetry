@@ -13,6 +13,8 @@
 
 #include <Arduino.h>
 
+#include <array>
+
 #include "lighting.h"
 
 namespace telemetry {
@@ -22,16 +24,16 @@ namespace {
 // Potência nominal assumida para cada ponto de iluminação (9W por canal).
 constexpr float LIGHT_POWER_W = 9.0F;
 
-ChannelMetrics bound_metrics[lighting::CHANNEL_COUNT];
+std::array<ChannelMetrics, lighting::CHANNEL_COUNT> bound_metrics;
 bool previous_states[lighting::CHANNEL_COUNT] = {false, false, false, false};
 unsigned long last_update_ms = 0;
 
 }  // namespace
 
-void init(const ChannelMetrics metrics[lighting::CHANNEL_COUNT], const unsigned long start_ms) {
-  for (uint8_t index = 0; index < lighting::CHANNEL_COUNT; ++index) {
-    bound_metrics[index] = metrics[index];
+void init(const std::array<ChannelMetrics, lighting::CHANNEL_COUNT>& metrics, const unsigned long start_ms) {
+  bound_metrics = metrics;
 
+  for (size_t index = 0; index < lighting::CHANNEL_COUNT; ++index) {
     const auto channel = static_cast<lighting::Channel>(index);
     previous_states[index] = lighting::get_channel(channel);
   }
@@ -45,29 +47,30 @@ void update(const unsigned long current_ms) {
 
   const float delta_seconds = static_cast<float>(delta_ms) / 1000.0F;
 
-  for (uint8_t index = 0; index < lighting::CHANNEL_COUNT; ++index) {
+  for (size_t index = 0; index < lighting::CHANNEL_COUNT; ++index) {
+    auto& [on_time_s, consumption_mwh, activations] = bound_metrics[index];
     const auto channel = static_cast<lighting::Channel>(index);
 
-    // Guard Clause: se estiver desligado, registra o estado e pula para a próxima iteração
+    // Guard Clause: se estiver desligado, registra o estado e avança para a próxima iteração
     if (const bool is_on = lighting::get_channel(channel); !is_on) {
       previous_states[index] = false;
       continue;
     }
 
     // Detecção de borda de subida: transição de desligado para ligado
-    if (!previous_states[index] && bound_metrics[index].activations != nullptr) {
-      *bound_metrics[index].activations += 1;
+    if (!previous_states[index] && activations != nullptr) {
+      *activations += 1;
     }
 
-    // Acúmulo de tempo e consumo energético se o canal estiver aceso
-    if (bound_metrics[index].on_time_s != nullptr) {
-      *bound_metrics[index].on_time_s += delta_seconds;
+    // Acumulação de tempo e consumo energético se o canal estiver aceso
+    if (on_time_s != nullptr) {
+      *on_time_s += delta_seconds;
     }
 
-    if (bound_metrics[index].consumption_mwh != nullptr) {
+    if (consumption_mwh != nullptr) {
       // Conversão física: mWh = Potência (W) * tempo (ms) / 3600 (s/h)
       const float delta_mwh = LIGHT_POWER_W * static_cast<float>(delta_ms) / 3600.0F;
-      *bound_metrics[index].consumption_mwh += delta_mwh;
+      *consumption_mwh += delta_mwh;
     }
 
     previous_states[index] = true;
