@@ -47,29 +47,30 @@ void update(const unsigned long current_ms) {
 
   for (uint8_t index = 0; index < lighting::CHANNEL_COUNT; ++index) {
     const auto channel = static_cast<lighting::Channel>(index);
-    const bool is_on = lighting::get_channel(channel);
+
+    // Guard Clause: se estiver desligado, registra o estado e pula para a próxima iteração
+    if (const bool is_on = lighting::get_channel(channel); !is_on) {
+      previous_states[index] = false;
+      continue;
+    }
 
     // Detecção de borda de subida: transição de desligado para ligado
-    if (is_on && !previous_states[index]) {
-      if (bound_metrics[index].activations != nullptr) {
-        *bound_metrics[index].activations += 1;
-      }
+    if (!previous_states[index] && bound_metrics[index].activations != nullptr) {
+      *bound_metrics[index].activations += 1;
     }
 
     // Acúmulo de tempo e consumo energético se o canal estiver aceso
-    if (is_on) {
-      if (bound_metrics[index].on_time_s != nullptr) {
-        *bound_metrics[index].on_time_s += delta_seconds;
-      }
-
-      if (bound_metrics[index].consumption_mwh != nullptr) {
-        // Conversão física: mWh = Potência (W) * tempo (ms) / 3600 (s/h)
-        const float delta_mwh = LIGHT_POWER_W * static_cast<float>(delta_ms) / 3600.0F;
-        *bound_metrics[index].consumption_mwh += delta_mwh;
-      }
+    if (bound_metrics[index].on_time_s != nullptr) {
+      *bound_metrics[index].on_time_s += delta_seconds;
     }
 
-    previous_states[index] = is_on;
+    if (bound_metrics[index].consumption_mwh != nullptr) {
+      // Conversão física: mWh = Potência (W) * tempo (ms) / 3600 (s/h)
+      const float delta_mwh = LIGHT_POWER_W * static_cast<float>(delta_ms) / 3600.0F;
+      *bound_metrics[index].consumption_mwh += delta_mwh;
+    }
+
+    previous_states[index] = true;
   }
 }
 
