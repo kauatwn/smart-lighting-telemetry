@@ -26,12 +26,7 @@ constexpr uint8_t PIN_SALA = 3;
 constexpr uint8_t PIN_BANHEIRO = 4;
 constexpr uint8_t PIN_VARANDA = 5;
 
-constexpr uint8_t LED_PINS[CHANNEL_COUNT] = {
-    PIN_COZINHA,
-    PIN_SALA,
-    PIN_BANHEIRO,
-    PIN_VARANDA,
-};
+constexpr std::array<uint8_t, CHANNEL_COUNT> LED_PINS = {PIN_COZINHA, PIN_SALA, PIN_BANHEIRO, PIN_VARANDA};
 
 // O módulo relé de 5V opera em lógica invertida (LOW = acionado/fechado, HIGH = aberto)
 constexpr uint8_t RELAY_PIN = 9;
@@ -43,23 +38,23 @@ constexpr uint8_t BUTTON_PIN = 12;
 constexpr unsigned long DEBOUNCE_DELAY_MS = 50;
 
 // Estados internos dos canais e periféricos
-bool channel_states[CHANNEL_COUNT] = {false, false, false, false};
+std::array<bool, CHANNEL_COUNT> channel_states{};
 bool relay_state = false;
 
 // Variáveis para controle do debounce temporal do botão
-bool last_button_reading = HIGH != 0U;
-bool stable_button_state = HIGH != 0U;
+bool last_button_reading = true;
+bool stable_button_state = true;
 unsigned long last_debounce_ms = 0;
 
 }  // namespace
 
 void init() {
   // Configura os pinos dos LEDs como saída e garante início desligado
-  for (uint8_t i = 0; i < CHANNEL_COUNT; ++i) {
-    pinMode(LED_PINS[i], OUTPUT);
-    digitalWrite(LED_PINS[i], LOW);
-    channel_states[i] = false;
+  for (const uint8_t pin : LED_PINS) {
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, LOW);
   }
+  channel_states.fill(false);
 
   // Configura o relé mantendo-o desligado na inicialização
   pinMode(RELAY_PIN, OUTPUT);
@@ -69,8 +64,8 @@ void init() {
   // Configura a entrada do botão com resistor pull-up interno ativo
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  last_button_reading = HIGH != 0U;
-  stable_button_state = HIGH != 0U;
+  last_button_reading = true;
+  stable_button_state = true;
   last_debounce_ms = millis();
 }
 
@@ -121,15 +116,13 @@ bool process_physical_button(const unsigned long current_ms) {
   }
 
   // Confirma a transição apenas se o sinal elétrico se mantiver estável
-  if (current_ms - last_debounce_ms >= DEBOUNCE_DELAY_MS) {
-    if (reading != stable_button_state) {
-      stable_button_state = reading;
+  if (current_ms - last_debounce_ms >= DEBOUNCE_DELAY_MS && reading != stable_button_state) {
+    stable_button_state = reading;
 
-      // INPUT_PULLUP: transição para LOW indica o clique do botão
-      if (static_cast<int>(stable_button_state) == LOW) {
-        set_relay(!relay_state);
-        relay_toggled = true;
-      }
+    // INPUT_PULLUP: transição para LOW indica o clique do botão
+    if (static_cast<int>(stable_button_state) == LOW) {
+      set_relay(!relay_state);
+      relay_toggled = true;
     }
   }
 

@@ -25,7 +25,8 @@ namespace {
 constexpr float LIGHT_POWER_W = 9.0F;
 
 std::array<ChannelMetrics, lighting::CHANNEL_COUNT> bound_metrics;
-bool previous_states[lighting::CHANNEL_COUNT] = {false, false, false, false};
+std::array<bool, lighting::CHANNEL_COUNT> previous_states{};
+
 unsigned long last_update_ms = 0;
 
 }  // namespace
