@@ -10,8 +10,10 @@
 #pragma once
 
 namespace config {
+
 constexpr char wifi_ssid[] = "MOCK_WIFI_SSID";
 constexpr char wifi_pass[] = "MOCK_WIFI_PASSWORD";
 constexpr char device_login_name[] = "00000000-0000-0000-0000-000000000000";
 constexpr char thing_id[] = "00000000-0000-0000-0000-000000000000";
+
 }  // namespace config
