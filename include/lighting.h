@@ -22,7 +22,9 @@ enum class Channel : uint8_t {
   VARANDA = 3,
 };
 
-// Quantidade total de canais de iluminação controlados pela placa.
+/**
+ * @brief Quantidade total de canais de iluminação controlados pela placa.
+ */
 constexpr uint8_t CHANNEL_COUNT = 4;
 
 /**
