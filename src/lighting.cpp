@@ -107,28 +107,35 @@ void set_relay(const bool enabled) {
 bool get_relay_state() { return relay_state; }
 
 bool process_physical_button(const unsigned long current_ms) {
-  const bool reading = digitalRead(BUTTON_PIN) != 0U;
-  bool relay_toggled = false;
+  const bool reading = static_cast<bool>(digitalRead(BUTTON_PIN));
 
   // Reinicia a contagem se a leitura elétrica oscilar (ruído/ruído mecânico)
   if (reading != last_button_reading) {
     last_debounce_ms = current_ms;
   }
 
-  // Confirma a transição apenas se o sinal elétrico se mantiver estável
-  if (current_ms - last_debounce_ms >= DEBOUNCE_DELAY_MS && reading != stable_button_state) {
-    stable_button_state = reading;
-
-    // INPUT_PULLUP: transição para LOW indica o clique do botão
-    if (static_cast<int>(stable_button_state) == LOW) {
-      set_relay(!relay_state);
-      relay_toggled = true;
-    }
-  }
-
   last_button_reading = reading;
 
-  return relay_toggled;
+  // Aguarda a estabilização do sinal
+  if (current_ms - last_debounce_ms < DEBOUNCE_DELAY_MS) {
+    return false;
+  }
+
+  // Ignora leituras que não representam uma mudança de estado
+  if (reading == stable_button_state) {
+    return false;
+  }
+
+  stable_button_state = reading;
+
+  // INPUT_PULLUP: LOW indica que o botão foi pressionado
+  if (stable_button_state) {
+    return false;
+  }
+
+  set_relay(!relay_state);
+
+  return true;
 }
 
 }  // namespace lighting
